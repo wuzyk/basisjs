@@ -1432,7 +1432,25 @@
   //
 
   var Slot = Class(DataObject, {
-    className: namespace + '.Slot'
+    className: namespace + '.Slot',
+    update: function(data){
+      if (!this.delegate)
+      {
+        /** @cut */ basis.dev.warn('Slot can\'t change it\'s own data');
+        return;
+      }
+
+      DataObject.prototype.update.call(this, data);
+    },
+    setState: function(state, stateData){
+      if (!this.delegate)
+      {
+        /** @cut */ basis.dev.warn('Slot can\'t change it\'s own state');
+        return;
+      }
+
+      DataObject.prototype.setState.call(this, state, stateData);
+    }
   });
 
 
