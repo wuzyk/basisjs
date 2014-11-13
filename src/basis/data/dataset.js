@@ -52,6 +52,7 @@
   var ReadOnlyDataset = basisData.ReadOnlyDataset;
   var Dataset = basisData.Dataset;
   var DatasetWrapper = basisData.DatasetWrapper;
+  var resolveValue = basisData.resolveValue;
   var resolveDataset = basisData.resolveDataset;
   var setAccumulateState = Dataset.setAccumulateState;
 
@@ -1166,6 +1167,18 @@
     }
   };
 
+  function extRule(fn){
+    return basis.object.extend(function(){
+      return fn.apply(this, arguments);
+    }, {
+      __extend__: function(value){
+        if (typeof value == 'string' || typeof value == 'function')
+          return extRule(basis.getter(value));
+        return value;
+      }
+    });
+  }
+
  /**
   * @class
   */
@@ -1191,7 +1204,12 @@
     * Helper function.
     * @type {function(basis.data.Object):*}
     */
-    rule: getter($true),
+    rule: extRule($true),
+
+   /**
+    * @type {basis.data.ResolveAdapter}
+    */
+    rule_: null,
 
    /**
     * Fires when rule is changed.
@@ -1226,7 +1244,26 @@
       source: MAPFILTER_SOURCE_HANDLER
     },
 
-    // no special init
+   /**
+    * @inheritDoc
+    */
+    init: function(){
+      // TODO: fix to use SourceDataset#init
+      this.sourceMap_ = {};
+
+      ReadOnlyDataset.prototype.init.call(this);
+
+      // apply rule before source apply
+      if (this.rule !== 'function')
+        this.rule = resolveValue(this, this.setRule, this.rule || $true, 'rule_');
+
+      var source = this.source;
+      if (source)
+      {
+        this.source = null;
+        this.setSource(source);
+      }
+    },
 
    /**
     * Set new transform function and apply new function to source objects.
@@ -1264,7 +1301,7 @@
     * @return {Object} Delta of member changes.
     */
     setRule: function(rule){
-      rule = getter(rule || $true);
+      rule = getter(resolveValue(this, this.setRule, rule || $true, 'rule_'));
 
       if (this.rule !== rule)
       {
@@ -1361,6 +1398,16 @@
         this.emit_itemsChanged(delta);
 
       return delta;
+    },
+
+   /**
+    * @inheritDocs
+    */
+    destroy: function(){
+      if (this.rule_)
+        resolveValue(this, false, false, 'rule_');
+
+      SourceDataset.prototype.destroy.call(this);
     }
   });
 
