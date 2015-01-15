@@ -428,7 +428,7 @@ module.exports = {
           }
         },
         {
-          name: 'destroy ',
+          name: 'host should invoke resolveValue on destroy',
           test: function(){
             var foo = {};
             var log = [];
@@ -501,16 +501,81 @@ module.exports = {
 
             assert(obj.active === true);
             assert(obj.activeRA_ instanceof ResolveAdapter);
+            assert(bar.value === true);
+            assert(bar.valueRA_ instanceof ResolveAdapter);
 
             // destroy source
             foo.destroy();
-            assert(bar.value === null);
-            assert(obj.active === false);
+            assert(bar.value === true);
+            assert(bar.valueRA_ === null);
+            assert(obj.active === true);
             assert(obj.activeRA_ instanceof ResolveAdapter);
 
             bar.destroy();
-            assert(obj.active === false);
+            assert(obj.active === true);
             assert(obj.activeRA_ === null);
+          }
+        },
+        {
+          name: 'destroy emitter as value should set value to null, but resolve adapter',
+          test: function(){
+            var obj = new AbstractData();
+            var fooDestroyed = false;
+            var foo = new Value({ value: obj, handler: { destroy: function(){ fooDestroyed = true; } } });
+            var barDestroyed = false;
+            var bar = new Value({ value: foo, handler: { destroy: function(){ barDestroyed = true; } } });
+
+            assert(foo.value === obj);
+            assert(bar.value === obj);
+            assert(bar.valueRA_ instanceof ResolveAdapter);
+
+            obj.destroy();
+            assert(fooDestroyed === false);
+            assert(foo.value === null);
+            assert(barDestroyed === false);
+            assert(bar.value === null);
+            assert(bar.valueRA_ instanceof ResolveAdapter);
+          }
+        },
+        {
+          name: 'nested updates should not break the links',
+          test: function(){
+            var foo = new Value({ value: 1 });
+            var bar = new Value({ value: foo });
+            var baz = new Value({ value: bar });
+
+            assert(foo.value === 1);
+            assert(bar.value === 1);
+            assert(bar.valueRA_ instanceof ResolveAdapter);
+            assert(baz.value === 1);
+            assert(baz.valueRA_ instanceof ResolveAdapter);
+
+            foo.set(2);
+            assert(foo.value === 2);
+            assert(bar.value === 2);
+            assert(bar.valueRA_ instanceof ResolveAdapter);
+            assert(baz.value === 2);
+            assert(baz.valueRA_ instanceof ResolveAdapter);
+          }
+        },
+        {
+          name: 'cascade destroy should cause no errors',
+          test: function(){
+            var obj = new AbstractData({ handler: { destroy: function(){ console.log('obj destroy'); } } });
+            var foo = Value.from(obj, basis.fn.$self);
+            var bar = new Value({ value: foo });
+            foo.addHandler({ destroy: function(){ console.log('foo destroy'); } });
+            bar.addHandler({ destroy: function(){ console.log('bar destroy'); } });
+
+            assert(foo.value === obj);
+            assert(bar.value === obj);
+            assert(bar.valueRA_ instanceof ResolveAdapter);
+
+            debugger;
+            obj.destroy();
+            assert(foo.value === null);
+            assert(bar.value === null);
+            assert(bar.valueRA_ === null);
           }
         }
       ]

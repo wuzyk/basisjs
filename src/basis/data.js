@@ -599,7 +599,7 @@
   };
   var VALUE_EMMITER_DESTROY_HANDLER = {
     destroy: function(object){
-      this.set(null);
+      this.set(this.valueRA_ ? this.valueRA_.source : null, true);
     }
   };
 
@@ -638,6 +638,11 @@
     * @type {*}
     */
     value: null,
+
+   /**
+    * @type {basis.data.ResolveAdapter}
+    */
+    valueRA_: null,
 
    /**
     * Value that was set on init.
@@ -695,13 +700,19 @@
     init: function(){
       AbstractData.prototype.init.call(this);
 
+      var value = this.value;
+
+      if (value)
+        value = resolveValue(this, this.set, value, 'valueRA_');
+
       if (this.proxy)
-        this.value = this.proxy(this.value);
+        value = this.proxy(value);
 
-      if (this.setNullOnEmitterDestroy && this.value instanceof Emitter)
-        this.value.addHandler(VALUE_EMMITER_DESTROY_HANDLER, this);
-
+      this.value = value;
       this.initValue = this.value;
+
+      if (this.setNullOnEmitterDestroy && value instanceof Emitter)
+        value.addHandler(VALUE_EMMITER_DESTROY_HANDLER, this);
     },
 
    /**
@@ -710,12 +721,17 @@
     * @param {*} value New value for property.
     * @return {boolean} Returns true if value was changed.
     */
-    set: function(value){
+    set: function(value, over){
       var oldValue = this.value;
-      var newValue = this.proxy ? this.proxy(value) : value;
-      var changed = newValue !== oldValue;
+      var newValue = resolveValue(this, this.set, value, 'valueRA_');
 
-      if (changed)
+      if (over)
+        newValue = null;
+
+      if (this.proxy)
+        newValue = this.proxy(newValue);
+
+      if (newValue !== oldValue)
       {
         if (this.setNullOnEmitterDestroy)
         {
@@ -729,9 +745,11 @@
 
         if (!this.locked)
           this.emit_change(oldValue);
+
+        return true;
       }
 
-      return changed;
+      return false;
     },
 
    /**
@@ -1008,6 +1026,9 @@
         if (cursor.destroy)
           cursor.destroy.call(cursor.context);
       }
+
+      if (this.valueRA_)
+        resolveValue(this, null, null, 'valueRA_');
 
       this.proxy = null;
       this.initValue = null;
