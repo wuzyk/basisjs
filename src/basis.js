@@ -1164,6 +1164,8 @@
 
         if (!absoluteFound)
           path.unshift(baseURI == '/' ? '' : baseURI);
+        else if (path.length && path[0] == '/')
+          path[0] = '';
 
         return utils.normalize(path.join('/'));
       },
@@ -2077,6 +2079,7 @@
   var resourceContentCache = {};
   var resourcePatch = {};
   var virtualResourceSeed = 1;
+  /** @cut */ var resourceSubscribers = [];
   /** @cut */ var resourceResolvingStack = [];
   /** @cut */ var requires;
 
@@ -2218,6 +2221,11 @@
       applyResourcePatches(resource);
       resource.apply();
 
+      /** @cut */ if (!isVirtual)
+      /** @cut */   resourceSubscribers.forEach(function(fn){
+      /** @cut */     fn({ type: 'resolve', resource: resource });
+      /** @cut */   });
+
       /** @cut    recursion warning */
       /** @cut */ resourceResolvingStack.pop();
 
@@ -2308,6 +2316,11 @@
     resources[resourceUrl] = resource;
     resourceRequestCache[resourceUrl] = resource;
 
+    /** @cut */ if (!isVirtual)
+    /** @cut */   resourceSubscribers.forEach(function(fn){
+    /** @cut */     fn({ type: 'create', resource: resource });
+    /** @cut */   });
+
     return resource;
   };
 
@@ -2362,6 +2375,9 @@
             return !resources[filename].virtual;
           });
     },
+    /** @cut */ subscribe: function(fn){
+    /** @cut */   resourceSubscribers.push(fn);
+    /** @cut */ },
 
     virtual: function(type, content, ownerUrl){
       return createResource(
